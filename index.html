@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Postpartum Game - Results Ranking</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        
+        .ranking-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        
+        .ranking-table th {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 15px;
+            text-align: left;
+        }
+        
+        .ranking-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .ranking-table tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .top-5 {
+            background-color: #fff3cd;
+            font-weight: bold;
+        }
+        
+        .rank-1 {
+            background-color: gold;
+            font-weight: bold;
+        }
+        
+        .rank-2 {
+            background-color: silver;
+            font-weight: bold;
+        }
+        
+        .rank-3 {
+            background-color: #cd7f32; /* bronze */
+            font-weight: bold;
+            color: white;
+        }
+        
+        .rank-4, .rank-5 {
+            background-color: #e8f4f8;
+            font-weight: bold;
+        }
+        
+        .medal {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            text-align: center;
+            line-height: 24px;
+            border-radius: 50%;
+            margin-right: 8px;
+            font-weight: bold;
+        }
+        
+        .gold-medal {
+            background-color: gold;
+            color: #333;
+        }
+        
+        .silver-medal {
+            background-color: silver;
+            color: #333;
+        }
+        
+        .bronze-medal {
+            background-color: #cd7f32;
+            color: white;
+        }
+        
+        .navigation {
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .btn {
+            display: inline-block;
+            background-color: #3498db;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 0 10px;
+            transition: background-color 0.3s;
+        }
+        
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+        
+        .empty-state p {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        
+        .last-updated {
+            text-align: center;
+            color: #7f8c8d;
+            font-style: italic;
+            margin-top: 20px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #3498db;
+        }
+        
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #e74c3c;
+            background-color: #fadbd8;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Postpartum Symptoms Game - Leaderboard</h1>
+        
+        <div id="ranking-container">
+            <div class="loading">
+                <p>Loading ranking data...</p>
+            </div>
+        </div>
+        
+        <div class="navigation">
+            <!-- <a href="noha.html" class="btn">Play Game</a> -->
+            <button id="refresh-btn" class="btn">Refresh Results</button>
+        </div>
+        
+        <div class="last-updated" id="last-updated">
+            Last updated: <span id="update-time">Never</span>
+        </div>
+    </div>
+
+    <script>
+        // Your Google Sheet URL
+        const SHEET_URL = 'https://opensheet.elk.sh/1dtPA4vzadOEOot7KFwl9wIEyJJGRXKjNgajUm_DOeEo/Results';
+        
+        // Function to fetch data from Google Sheets via opensheet
+        async function fetchRankingData() {
+            try {
+                const response = await fetch(SHEET_URL);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch data: ${response.status} ${response.statusText}`);
+                }
+                const data = await response.json();
+                
+                // Filter out empty rows and ensure time is a number
+                const validData = data
+                    .filter(row => row.name && row.time && !isNaN(parseInt(row.time)))
+                    .map(row => ({
+                        name: row.name,
+                        time: parseInt(row.time)
+                    }));
+                
+                return validData;
+            } catch (error) {
+                console.error('Error fetching ranking data:', error);
+                throw error;
+            }
+        }
+        
+        // Function to display the ranking
+        function displayRanking(data) {
+            const container = document.getElementById('ranking-container');
+            
+            if (!data || data.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p>No results available yet.</p>
+                        <p>Be the first to complete the game!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Sort data by time (ascending - shortest time first)
+            const sortedData = [...data].sort((a, b) => a.time - b.time);
+            
+            let html = `
+                <table class="ranking-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Player Name</th>
+                            <th>Time (seconds)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            sortedData.forEach((player, index) => {
+                const rank = index + 1;
+                let rowClass = '';
+                let medal = '';
+                
+                if (rank === 1) {
+                    rowClass = 'rank-1';
+                    medal = '<span class="medal gold-medal">1</span>';
+                } else if (rank === 2) {
+                    rowClass = 'rank-2';
+                    medal = '<span class="medal silver-medal">2</span>';
+                } else if (rank === 3) {
+                    rowClass = 'rank-3';
+                    medal = '<span class="medal bronze-medal">3</span>';
+                } else if (rank <= 5) {
+                    rowClass = 'top-5';
+                    medal = `<span>${rank}</span>`;
+                } else {
+                    medal = `<span>${rank}</span>`;
+                }
+                
+                html += `
+                    <tr class="${rowClass}">
+                        <td>${medal}</td>
+                        <td>${player.name}</td>
+                        <td>${player.time} seconds</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+                <p style="text-align: center; color: #7f8c8d; margin-top: 10px;">
+                    Showing ${sortedData.length} player${sortedData.length !== 1 ? 's' : ''}
+                </p>
+            `;
+            
+            container.innerHTML = html;
+            
+            // Update last updated time
+            const now = new Date();
+            document.getElementById('update-time').textContent = now.toLocaleString();
+        }
+        
+        // Function to show error message
+        function showError(message) {
+            const container = document.getElementById('ranking-container');
+            container.innerHTML = `
+                <div class="error">
+                    <p><strong>Error loading ranking data</strong></p>
+                    <p>${message}</p>
+                    <p>Please check your internet connection and try again.</p>
+                </div>
+            `;
+        }
+        
+        // Function to load and display the ranking
+        async function loadRanking() {
+            const refreshBtn = document.getElementById('refresh-btn');
+            const originalText = refreshBtn.textContent;
+            
+            try {
+                refreshBtn.textContent = 'Loading...';
+                refreshBtn.disabled = true;
+                
+                const data = await fetchRankingData();
+                displayRanking(data);
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                refreshBtn.textContent = originalText;
+                refreshBtn.disabled = false;
+            }
+        }
+        
+        // Event listeners
+        document.getElementById('refresh-btn').addEventListener('click', loadRanking);
+        
+        // Load ranking when page loads
+        document.addEventListener('DOMContentLoaded', loadRanking);
+        
+        // Auto-refresh every 30 seconds
+        setInterval(loadRanking, 30000);
+    </script>
+</body>
+</html>
